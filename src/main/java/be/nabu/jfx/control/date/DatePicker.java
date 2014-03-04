@@ -45,6 +45,7 @@ public class DatePicker extends TextField {
 	private ObjectProperty<Locale> locale = new SimpleObjectProperty<Locale>(this, "locale");
 	private ObjectProperty<TimeZone> timezone = new SimpleObjectProperty<TimeZone>(this, "timezone");
 	private ObjectProperty<String> format = new SimpleObjectProperty<String>(this, "format");
+	private ObjectProperty<DateFilter> filter = new SimpleObjectProperty<DateFilter>(this, "filter");
 	
 	private List<String> fields = null;
 	
@@ -96,6 +97,10 @@ public class DatePicker extends TextField {
 		selectRange(selectedRange);
 	}
 	
+	public ObjectProperty<DateFilter> filterProperty() {
+		return filter;
+	}
+	
 	private void updateTimestamp() {
 		ParsePosition position = new ParsePosition(0);
 		Date date = formatter.parse(getText(), position);
@@ -140,10 +145,16 @@ public class DatePicker extends TextField {
 			@Override
 			public void changed(ObservableValue<? extends String> observableValue, String oldValue, String newValue) {
 				ParsePosition position = new ParsePosition(0);
-				getFormatter().parse(newValue, position);
+				Date parsed = getFormatter().parse(newValue, position);
 				// not a valid date according to the format, revert value
 				if (position.getErrorIndex() >= 0) 
 					setText(oldValue);
+				else if (filter.isNotNull().getValue() && !filter.getValue().accept(parsed)) {
+					// only revert to the old value if that was actually accepted
+					// this protects against recursion, it is up to the developer to make sure the initial value (whatever it is) conforms to the filter
+					if (filter.getValue().accept(getDate()))
+						setText(oldValue);
+				}
 				refreshRange();
 				// position the caret after what you just edited, that way you can continue typing
 				positionCaret(selectedRange.getEnd() + 1);
@@ -211,7 +222,8 @@ public class DatePicker extends TextField {
 					int factor = event.getCode() == KeyCode.UP ? 1 : -1;
 					int calendarField = fieldToCalendarField(getFieldIndex(selectedRange.getStart()));
 					calendar.roll(calendarField, factor);
-					setCalendar(calendar);
+					if (filter == null || filter.getValue().accept(calendar.getTime()))
+						setCalendar(calendar);
 					refreshRange();
 					selectRange();
 					event.consume();

@@ -1,6 +1,7 @@
 package be.nabu.jfx.control.date;
 
 import java.util.Calendar;
+import java.util.Date;
 
 import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
@@ -24,6 +25,8 @@ public class PopupCalendar {
 	private Label lblMonth, lblYear;
 	
 	private Slider sldHour, sldMinute, sldSecond, sldMillisecond;
+	
+	private Button btnPreviousYear, btnNextYear, btnPreviousMonth, btnNextMonth;
 	
 	private ChangeListener<Long> monthListener = new ChangeListener<Long>() {
 		@Override
@@ -74,6 +77,18 @@ public class PopupCalendar {
 
 	public PopupCalendar(DatePicker datePicker) {
 		this.datePicker = datePicker;
+		datePicker.filterProperty().addListener(new ChangeListener<DateFilter>() {
+			@Override
+			public void changed(ObservableValue<? extends DateFilter> arg0, DateFilter arg1, DateFilter arg2) {
+				updateFilters();
+			}
+		});
+		datePicker.timestampProperty().addListener(new ChangeListener<Long>() {
+			@Override
+			public void changed(ObservableValue<? extends Long> arg0, Long arg1, Long arg2) {
+				updateFilters();
+			}
+		});
 	}
 	
 	private void destroy() {
@@ -107,7 +122,7 @@ public class PopupCalendar {
 		final int yearField = datePicker.getFieldIndex("y");
 		// if we have years, show them
 		if (yearField >= 0) {
-			Button btnPreviousYear = new Button("<");
+			btnPreviousYear = new Button("<");
 			btnPreviousYear.addEventHandler(MouseEvent.MOUSE_CLICKED, new EventHandler<MouseEvent>() {
 				@Override
 				public void handle(MouseEvent arg0) {
@@ -118,7 +133,7 @@ public class PopupCalendar {
 			datePicker.timestampProperty().addListener(yearListener);
 			lblYear.getStyleClass().add("nabu-date-picker-year");
 			buildYearLabel();
-			Button btnNextYear = new Button(">");
+			btnNextYear = new Button(">");
 			btnNextYear.addEventHandler(MouseEvent.MOUSE_CLICKED, new EventHandler<MouseEvent>() {
 				@Override
 				public void handle(MouseEvent arg0) {
@@ -134,7 +149,7 @@ public class PopupCalendar {
 		final int monthField = datePicker.getFieldIndex("M");
 		// if we have months, show them as well
 		if (monthField >= 0) {
-			Button btnPreviousMonth = new Button("<");
+			btnPreviousMonth = new Button("<");
 			btnPreviousMonth.addEventHandler(MouseEvent.MOUSE_CLICKED, new EventHandler<MouseEvent>() {
 				@Override
 				public void handle(MouseEvent arg0) {
@@ -145,7 +160,7 @@ public class PopupCalendar {
 			datePicker.timestampProperty().addListener(monthListener);
 			lblMonth.getStyleClass().add("nabu-date-picker-month");
 			buildMonthLabel();
-			Button btnNextMonth = new Button(">");
+			btnNextMonth = new Button(">");
 			btnNextMonth.addEventHandler(MouseEvent.MOUSE_CLICKED, new EventHandler<MouseEvent>() {
 				@Override
 				public void handle(MouseEvent arg0) {
@@ -251,6 +266,8 @@ public class PopupCalendar {
 				vbxMain.getChildren().add(timeGrid);
 		}
 		
+		updateFilters();
+		
 		return vbxMain;
 	}
 	
@@ -279,6 +296,28 @@ public class PopupCalendar {
 		Calendar calendar = datePicker.getCalendar();
 		if (calendar != null)
 			lblYear.setText("" + calendar.get(datePicker.fieldToCalendarField(datePicker.getFieldIndex("y"))));
+	}
+	
+	private void updateFilters() {
+		if (datePicker.getCalendar() != null) {
+			DateFilter filter = datePicker.filterProperty().isNotNull().getValue() ? datePicker.filterProperty().getValue() : new AcceptAllFilter();
+			// check years
+			Calendar calendar = datePicker.getCalendar();
+			calendar.add(Calendar.YEAR, -1);
+			if (btnPreviousYear != null)
+				btnPreviousYear.disableProperty().set(!filter.accept(calendar.getTime()));
+			calendar.add(Calendar.YEAR, 2);
+			if (btnNextYear != null)
+				btnNextYear.disableProperty().set(!filter.accept(calendar.getTime()));
+			// check months
+			calendar = datePicker.getCalendar();
+			calendar.add(Calendar.MONTH, -1);
+			if (btnPreviousMonth != null)
+				btnPreviousMonth.disableProperty().set(!filter.accept(calendar.getTime()));
+			calendar.add(Calendar.MONTH, 2);
+			if (btnNextMonth != null)
+				btnNextMonth.disableProperty().set(!filter.accept(calendar.getTime()));
+		}
 	}
 	
 	private void buildMonthLabel() {
@@ -311,6 +350,7 @@ public class PopupCalendar {
 				dayGrid.add(new Label(copy.getDisplayName(Calendar.DAY_OF_WEEK, Calendar.SHORT, datePicker.localeProperty().getValue())), column, 0);
 				// set the actual day
 				Button btnDay = new Button((copy.get(Calendar.DAY_OF_MONTH) < 10 ? "0" : "") + copy.get(Calendar.DAY_OF_MONTH));
+				btnDay.disableProperty().setValue(datePicker.filterProperty().isNotNull().getValue() && !datePicker.filterProperty().getValue().accept(copy.getTime()));
 				if (copy.get(Calendar.DAY_OF_MONTH) == calendar.get(Calendar.DAY_OF_MONTH))
 					btnDay.getStyleClass().add("nabu-date-picker-day-selected");
 				btnDay.addEventHandler(MouseEvent.MOUSE_CLICKED, new EventHandler<MouseEvent>() {
@@ -325,6 +365,13 @@ public class PopupCalendar {
 				});
 				dayGrid.add(btnDay, column, row);
 			}
+		}
+	}
+	
+	private static class AcceptAllFilter implements DateFilter {
+		@Override
+		public boolean accept(Date date) {
+			return true;
 		}
 	}
 }
