@@ -18,6 +18,7 @@ import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
 import javafx.event.EventHandler;
 import javafx.geometry.Side;
+import javafx.scene.Parent;
 import javafx.scene.control.ContextMenu;
 import javafx.scene.control.CustomMenuItem;
 import javafx.scene.control.TextField;
@@ -315,7 +316,23 @@ public class DatePicker extends TextField {
 		contextMenu.getStyleClass().add("nabu-date-picker-popup");
 		CustomMenuItem menuItem = new CustomMenuItem();
 		menuItem.getStyleClass().add("nabu-date-picker-popup");
-		menuItem.setContent(getPopupCalendar().build());
+		final Parent popup = getPopupCalendar().build();
+		menuItem.setContent(popup);
+		// this prevents context menu from closing when you click on the text field (allowing you for example to select parts)
+		contextMenu.addEventFilter(MouseEvent.MOUSE_PRESSED, new EventHandler<MouseEvent>() {
+			@Override
+			public void handle(MouseEvent event) {
+				event.consume();
+			}
+		});
+		// this prevents the context menu from gaining focus when you move over the text field
+		contextMenu.addEventFilter(MouseEvent.MOUSE_MOVED, new EventHandler<MouseEvent>() {
+			@Override
+			public void handle(MouseEvent event) {
+				popup.requestFocus();
+				event.consume();
+			}
+		});
 		contextMenu.getItems().add(menuItem);
 		setContextMenu(contextMenu);
 	}
@@ -412,7 +429,7 @@ public class DatePicker extends TextField {
 	}
 	
 	@Override
-	protected String getUserAgentStylesheet() {
+	public String getUserAgentStylesheet() {
 		return DatePicker.class.getClassLoader().getResource("jfx-date-picker.css").toExternalForm();
 	}
 	
