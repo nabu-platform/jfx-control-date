@@ -81,8 +81,8 @@ public class DatePicker extends TextField {
 		// set default values, the order is important for the listeners
 		this.timezone.setValue(timezone == null ? TimeZone.getDefault() : timezone);
 		this.locale.setValue(locale == null ? Locale.getDefault() : locale);
-		this.format.setValue(format == null ? "yyyy/MM/dd HH:mm:ss" : null);
-		timestamp.setValue(new Date().getTime());
+		this.format.setValue(format == null ? "yyyy/MM/dd HH:mm:ss" : format);
+//		timestamp.setValue(new Date().getTime());
 		
 		// find and select a field
 		refreshRange();
@@ -90,7 +90,9 @@ public class DatePicker extends TextField {
 	}
 
 	private void selectRange(Range<Integer> range) {
-		selectRange(range.getStart(), range.getEnd() + 1);
+		if (range != null) {
+			selectRange(range.getStart(), range.getEnd() + 1);
+		}
 	}
 	
 	private void selectRange() {
@@ -103,18 +105,20 @@ public class DatePicker extends TextField {
 	}
 	
 	private void updateTimestamp() {
-		ParsePosition position = new ParsePosition(0);
-		Date date = formatter.parse(getText(), position);
-		if (position.getErrorIndex() >= 0)
-			throw new RuntimeException("This should not happen: " + getText());
-		// the change event is not triggered if the value hasn't changed
-		// so if you fill in the same twice, the textual value might not be updated to the proper format but it must
-		// e.g. the first time you fill in "1" for month, because it is different from the current month, the timestamp is updated and the textfield as well, resulting in 01
-		// if you type in 1 again, there is no change but the text field must still become 01
-		if (timestamp.getValue().equals(date.getTime()))
-			setText(formatter.format(date));
-		else
-			timestamp.setValue(date.getTime());
+		if (getText() != null && !getText().trim().isEmpty()) {
+			ParsePosition position = new ParsePosition(0);
+			Date date = formatter.parse(getText(), position);
+			if (position.getErrorIndex() < 0) {
+				// the change event is not triggered if the value hasn't changed
+				// so if you fill in the same twice, the textual value might not be updated to the proper format but it must
+				// e.g. the first time you fill in "1" for month, because it is different from the current month, the timestamp is updated and the textfield as well, resulting in 01
+				// if you type in 1 again, there is no change but the text field must still become 01
+				if (timestamp.getValue() != null && timestamp.getValue().equals(date.getTime()))
+					setText(formatter.format(date));
+				else
+					timestamp.setValue(date.getTime());
+			}
+		}
 	}
 	
 	private void updateText() {
@@ -122,6 +126,9 @@ public class DatePicker extends TextField {
 			setText(formatter.format(timestamp.getValue()));
 			refreshRange();
 			selectRange();
+		}
+		else if (timestamp.getValue() == null) {
+			setText("");
 		}
 	}
 	
@@ -145,20 +152,25 @@ public class DatePicker extends TextField {
 		textProperty().addListener(new ChangeListener<String>() {
 			@Override
 			public void changed(ObservableValue<? extends String> observableValue, String oldValue, String newValue) {
-				ParsePosition position = new ParsePosition(0);
-				Date parsed = getFormatter().parse(newValue, position);
-				// not a valid date according to the format, revert value
-				if (position.getErrorIndex() >= 0) 
-					setText(oldValue);
-				else if (filter.isNotNull().getValue() && !filter.getValue().accept(parsed)) {
-					// only revert to the old value if that was actually accepted
-					// this protects against recursion, it is up to the developer to make sure the initial value (whatever it is) conforms to the filter
-					if (filter.getValue().accept(getDate()))
-						setText(oldValue);
+				if (oldValue == null || oldValue.trim().isEmpty()) {
+					timestamp.set(new Date().getTime());
 				}
-				refreshRange();
-				// position the caret after what you just edited, that way you can continue typing
-				positionCaret(selectedRange.getEnd() + 1);
+				else if (newValue != null && !newValue.trim().isEmpty()) {
+					ParsePosition position = new ParsePosition(0);
+					Date parsed = getFormatter().parse(newValue, position);
+					// not a valid date according to the format, revert value
+					if (position.getErrorIndex() >= 0) 
+						setText(oldValue);
+					else if (filter.isNotNull().getValue() && !filter.getValue().accept(parsed)) {
+						// only revert to the old value if that was actually accepted
+						// this protects against recursion, it is up to the developer to make sure the initial value (whatever it is) conforms to the filter
+						if (filter.getValue().accept(getDate()))
+							setText(oldValue);
+					}
+					refreshRange();
+					// position the caret after what you just edited, that way you can continue typing
+					positionCaret(selectedRange.getEnd() + 1);
+				}
 			}
 		});
 		
@@ -172,8 +184,13 @@ public class DatePicker extends TextField {
 					getContextMenu().hide();
 				}
 				// otherwise, if we gain focus, we must make sure we have something selected
-				else
+				else {
+					// first thing we type in an empty field
+					if (timestamp.getValue() == null) {
+						timestamp.set(new Date().getTime());
+					}
 					selectRange();
+				}
 			}
 		});
 
@@ -188,14 +205,14 @@ public class DatePicker extends TextField {
 					selectedRange = findPreviousRange(getCaretPosition());
 					if (selectedRange == null)
 						selectedRange = findNextRange(getCaretPosition());
-					if (selectedRange == null)
-						throw new IllegalStateException("No valid data could be found");
 				}
-				// select the range we just found
-				selectRange();
-				event.consume();
-				getContextMenu().show(DatePicker.this, Side.BOTTOM, 0, 0);
-				requestFocus();
+				if (selectedRange != null) {
+					// select the range we just found
+					selectRange();
+					event.consume();
+					getContextMenu().show(DatePicker.this, Side.BOTTOM, 0, 0);
+					requestFocus();
+				}
 			}
 		});
 		
@@ -223,7 +240,7 @@ public class DatePicker extends TextField {
 					int factor = event.getCode() == KeyCode.UP ? 1 : -1;
 					int calendarField = fieldToCalendarField(getFieldIndex(selectedRange.getStart()));
 					calendar.roll(calendarField, factor);
-					if (filter == null || filter.getValue().accept(calendar.getTime()))
+					if (filter.getValue() == null || filter.getValue().accept(calendar.getTime()))
 						setCalendar(calendar);
 					refreshRange();
 					selectRange();
@@ -234,6 +251,10 @@ public class DatePicker extends TextField {
 					updateTimestamp();
 					refreshRange();
 					selectRange();
+					event.consume();
+				}
+				else if (event.getCode() == KeyCode.DELETE) {
+					timestamp.setValue(null);
 					event.consume();
 				}
 			}
@@ -248,7 +269,7 @@ public class DatePicker extends TextField {
 			public void handle(KeyEvent event) {
 				// typing letters will move the caret
 				// this is usually ok unless you type something wrong, the value will be reset but the caret will still move
-				if (event.getCode() != KeyCode.UP && event.getCode() != KeyCode.DOWN && event.getCode() != KeyCode.LEFT && event.getCode() != KeyCode.RIGHT && event.getCode() != KeyCode.ENTER)
+				if (selectedRange != null && event.getCode() != KeyCode.UP && event.getCode() != KeyCode.DOWN && event.getCode() != KeyCode.LEFT && event.getCode() != KeyCode.RIGHT && event.getCode() != KeyCode.ENTER)
 					positionCaret(selectedRange.getEnd() + 1);
 			}
 		});
@@ -294,7 +315,12 @@ public class DatePicker extends TextField {
 		timestamp.addListener(new ChangeListener<Long>() {
 			@Override
 			public void changed(ObservableValue<? extends Long> arg0, Long arg1, Long arg2) {
-				updateText();
+				if (arg2 == null) {
+					setText("");
+				}
+				else {
+					updateText();
+				}
 			}
 		});		
 		
@@ -311,30 +337,42 @@ public class DatePicker extends TextField {
 	}
 	
 	private void buildContextMenu() {
-		contextMenu = new ContextMenu();
-		contextMenu.addEventFilter(KeyEvent.KEY_PRESSED, keyHandler);
-		contextMenu.getStyleClass().add("nabu-date-picker-popup");
-		CustomMenuItem menuItem = new CustomMenuItem();
-		menuItem.getStyleClass().add("nabu-date-picker-popup");
+		if (contextMenu == null) {
+			CustomMenuItem menuItem = new CustomMenuItem();
+			menuItem.setHideOnClick(false);
+			menuItem.getStyleClass().add("nabu-date-picker-popup");
+			contextMenu = new ContextMenu();
+			contextMenu.addEventFilter(KeyEvent.KEY_PRESSED, keyHandler);
+			contextMenu.getStyleClass().add("nabu-date-picker-popup");
+			// this prevents context menu from closing when you click on the text field (allowing you for example to select parts)
+			contextMenu.addEventFilter(MouseEvent.MOUSE_PRESSED, new EventHandler<MouseEvent>() {
+				@Override
+				public void handle(MouseEvent event) {
+					event.consume();
+				}
+			});
+			// this prevents the context menu from gaining focus when you move over the text field
+			contextMenu.addEventFilter(MouseEvent.MOUSE_MOVED, new EventHandler<MouseEvent>() {
+				@Override
+				public void handle(MouseEvent event) {
+					menuItem.getContent().requestFocus();
+					event.consume();
+				}
+			});
+			contextMenu.focusedProperty().addListener(new ChangeListener<Boolean>() {
+				@Override
+				public void changed(ObservableValue<? extends Boolean> arg0, Boolean arg1, Boolean arg2) {
+					if (arg2 != null && arg2) {
+						menuItem.getContent().requestFocus();
+					}
+				}
+			});
+			contextMenu.getItems().add(menuItem);
+			setContextMenu(contextMenu);
+		}
 		final Parent popup = getPopupCalendar().build();
-		menuItem.setContent(popup);
-		// this prevents context menu from closing when you click on the text field (allowing you for example to select parts)
-		contextMenu.addEventFilter(MouseEvent.MOUSE_PRESSED, new EventHandler<MouseEvent>() {
-			@Override
-			public void handle(MouseEvent event) {
-				event.consume();
-			}
-		});
-		// this prevents the context menu from gaining focus when you move over the text field
-		contextMenu.addEventFilter(MouseEvent.MOUSE_MOVED, new EventHandler<MouseEvent>() {
-			@Override
-			public void handle(MouseEvent event) {
-				popup.requestFocus();
-				event.consume();
-			}
-		});
-		contextMenu.getItems().add(menuItem);
-		setContextMenu(contextMenu);
+		((CustomMenuItem) contextMenu.getItems().get(0)).setContent(popup);
+		popup.requestFocus();
 	}
 	
 	private PopupCalendar getPopupCalendar() {
@@ -359,7 +397,7 @@ public class DatePicker extends TextField {
 	private Range<Integer> findPreviousRange(int position) {
 		Range<Integer> range = getValueRange(position);
 		for (int i = range == null ? position : range.getStart() - 1; i >= 0; i--) {
-			if (isValidValueChar(getText().charAt(i)))
+			if (i < getText().length() && isValidValueChar(getText().charAt(i)))
 				return getValueRange(i);
 		}
 		return null;
@@ -369,7 +407,7 @@ public class DatePicker extends TextField {
 		if (position >= getText().length())
 			position = getText().length() - 1;
 		
-		if (isValidValueChar(getText().charAt(position))) {
+		if (position >= 0 && isValidValueChar(getText().charAt(position))) {
 			// find start
 			Integer start = position;
 			for (int i = position; i >= 0; i--) {
@@ -398,10 +436,10 @@ public class DatePicker extends TextField {
 	 * @return
 	 */
 	private static boolean isValidValueChar(int charCode) {
-		return (charCode >= 48 && charCode <= 57)
-			|| (charCode >= 65 && charCode <= 90)
-			|| (charCode >= 97 && charCode <= 122)
-			|| charCode == 95;
+		return (charCode >= 48 && charCode <= 57);
+//			|| (charCode >= 65 && charCode <= 90)
+//			|| (charCode >= 97 && charCode <= 122)
+//			|| charCode == 95;
 	}
 	
 	private Integer getFieldIndex(int startPosition) {
@@ -453,11 +491,11 @@ public class DatePicker extends TextField {
 		this.hideTimeControls = hideTimeControls;
 	}
 	public Date getDate() {
-		return new Date(timestamp.getValue());
+		return timestamp.getValue() == null ? null : new Date(timestamp.getValue());
 	}
 	
 	public void setDate(Date date) {
-		timestamp.setValue(date.getTime());
+		timestamp.setValue(date == null ? null : date.getTime());
 	}
 	
 	public Calendar getCalendar() {
@@ -475,7 +513,7 @@ public class DatePicker extends TextField {
 		timestamp.setValue(calendar.getTime().getTime());
 	}
 	
-	private DateFormat getFormatter() {
+	public DateFormat getFormatter() {
 		return formatter;
 	}
 	
