@@ -60,6 +60,8 @@ public class DatePicker extends TextField {
 	
 	private boolean hideTimeControls = false;
 	
+	private boolean setting = false;
+	
 	/**
 	 * The key handler must be registered on both the textfield and the popup to work properly for up and down keys
 	 */
@@ -122,12 +124,22 @@ public class DatePicker extends TextField {
 	}
 	
 	private void updateText() {
-		if (formatter != null && timestamp.getValue() != null) {
-			setText(formatter.format(timestamp.getValue()));
-			refreshRange();
-			selectRange();
+		updateText(timestamp.getValue());
+	}
+	
+	private void updateText(Long value) {
+		if (formatter != null && value != null) {
+			setting = true;
+			try {
+				setText(formatter.format(new Date(value)));
+				refreshRange();
+				selectRange();
+			}
+			finally {
+				setting = false;
+			}
 		}
-		else if (timestamp.getValue() == null) {
+		else if (value == null) {
 			setText("");
 		}
 	}
@@ -152,24 +164,26 @@ public class DatePicker extends TextField {
 		textProperty().addListener(new ChangeListener<String>() {
 			@Override
 			public void changed(ObservableValue<? extends String> observableValue, String oldValue, String newValue) {
-				if (oldValue == null || oldValue.trim().isEmpty()) {
-					timestamp.set(new Date().getTime());
-				}
-				else if (newValue != null && !newValue.trim().isEmpty()) {
-					ParsePosition position = new ParsePosition(0);
-					Date parsed = getFormatter().parse(newValue, position);
-					// not a valid date according to the format, revert value
-					if (position.getErrorIndex() >= 0) 
-						setText(oldValue);
-					else if (filter.isNotNull().getValue() && !filter.getValue().accept(parsed)) {
-						// only revert to the old value if that was actually accepted
-						// this protects against recursion, it is up to the developer to make sure the initial value (whatever it is) conforms to the filter
-						if (filter.getValue().accept(getDate()))
-							setText(oldValue);
+				if (!setting) {
+					if (oldValue == null || oldValue.trim().isEmpty()) {
+						timestamp.set(new Date().getTime());
 					}
-					refreshRange();
-					// position the caret after what you just edited, that way you can continue typing
-					positionCaret(selectedRange.getEnd() + 1);
+					else if (newValue != null && !newValue.trim().isEmpty()) {
+						ParsePosition position = new ParsePosition(0);
+						Date parsed = getFormatter().parse(newValue, position);
+						// not a valid date according to the format, revert value
+						if (position.getErrorIndex() >= 0) 
+							setText(oldValue);
+						else if (filter.isNotNull().getValue() && !filter.getValue().accept(parsed)) {
+							// only revert to the old value if that was actually accepted
+							// this protects against recursion, it is up to the developer to make sure the initial value (whatever it is) conforms to the filter
+							if (filter.getValue().accept(getDate()))
+								setText(oldValue);
+						}
+						refreshRange();
+						// position the caret after what you just edited, that way you can continue typing
+						positionCaret(selectedRange.getEnd() + 1);
+					}
 				}
 			}
 		});
@@ -319,7 +333,7 @@ public class DatePicker extends TextField {
 					setText("");
 				}
 				else {
-					updateText();
+					updateText(arg2);
 				}
 			}
 		});		
