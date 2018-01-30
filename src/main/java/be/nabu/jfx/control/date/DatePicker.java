@@ -200,9 +200,9 @@ public class DatePicker extends TextField {
 				// otherwise, if we gain focus, we must make sure we have something selected
 				else {
 					// first thing we type in an empty field
-					if (timestamp.getValue() == null) {
-						timestamp.set(new Date().getTime());
-					}
+//					if (timestamp.getValue() == null) {
+//						timestamp.set(new Date().getTime());
+//					}
 					selectRange();
 				}
 			}
