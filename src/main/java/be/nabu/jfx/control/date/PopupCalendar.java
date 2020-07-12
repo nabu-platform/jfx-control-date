@@ -12,7 +12,7 @@ import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.Slider;
 import javafx.scene.input.MouseEvent;
-import javafx.scene.layout.ColumnConstraintsBuilder;
+import javafx.scene.layout.ColumnConstraints;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.VBox;
 
@@ -108,11 +108,17 @@ public class PopupCalendar {
 		vbxMain.getStyleClass().add("nabu-date-picker-calendar");
 		
 		GridPane dateGrid = new GridPane();
-		
+
+		ColumnConstraints constraints1 = new ColumnConstraints();
+		constraints1.setPercentWidth(20);
+		ColumnConstraints constraints2 = new ColumnConstraints();
+		constraints2.setPercentWidth(60);
+		ColumnConstraints constraints3 = new ColumnConstraints();
+		constraints3.setPercentWidth(20);
 		dateGrid.getColumnConstraints().addAll(
-    		ColumnConstraintsBuilder.create().percentWidth(20).build(),
-    		ColumnConstraintsBuilder.create().percentWidth(60).build(),
-	    	ColumnConstraintsBuilder.create().percentWidth(20).build()
+			constraints1,
+			constraints2,
+			constraints3
 	    );
 		
 		dateGrid.setVgap(10);
@@ -189,9 +195,13 @@ public class PopupCalendar {
 		if (!datePicker.getHideTimeControls()) {
 			GridPane timeGrid = new GridPane();
 			
+			ColumnConstraints c1 = new ColumnConstraints();
+			c1.setPercentWidth(35);
+			ColumnConstraints c2 = new ColumnConstraints();
+			c2.setPercentWidth(65);
 			timeGrid.getColumnConstraints().addAll(
-	    		ColumnConstraintsBuilder.create().percentWidth(35).build(),
-	    		ColumnConstraintsBuilder.create().percentWidth(65).build()
+				c1,
+				c2
 		    );
 			
 			timeGrid.setVgap(10);
